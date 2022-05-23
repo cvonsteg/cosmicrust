@@ -76,13 +76,13 @@ impl Ord for Batch {
 
 impl Batch {
     pub fn new(reference: &str, sku: &str, qty: i64, eta: Option<NaiveDate>) -> Batch {
-        let emptyallocations: HashSet<OrderLine> = HashSet::new();
+        let empty_allocations: HashSet<OrderLine> = HashSet::new();
         Batch {
             reference: reference.to_owned(),
             sku: sku.to_owned(),
             purchased_qty: qty,
             eta,
-            allocations: emptyallocations,
+            allocations: empty_allocations,
         }
     }
 

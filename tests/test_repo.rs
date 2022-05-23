@@ -1,5 +1,5 @@
 use cosmicrust::domain::Batch;
-use cosmicrust::repo::{LocalStore, Repository};
+use cosmicrust::repo::{LocalBatchRepo, Repository};
 
 #[test]
 fn test_that_local_store_can_read_and_write_batch() {
@@ -9,7 +9,7 @@ fn test_that_local_store_can_read_and_write_batch() {
         Batch::new("ref3", "SOFA", 10, None),
         Batch::new("ref4", "LAMP", 10, None),
     ];
-    let mut local_store = LocalStore::from_vec(batches);
+    let mut local_store = LocalBatchRepo::from_vec(batches);
     let new_batch = Batch::new("ref5", "CUSHION", 10, None);
 
     // write

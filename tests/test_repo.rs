@@ -1,7 +1,6 @@
 use cosmicrust::domain::Batch;
 use cosmicrust::repo::{LocalStore, Repository};
 
-
 #[test]
 fn test_that_local_store_can_read_and_write_batch() {
     let batches = vec![

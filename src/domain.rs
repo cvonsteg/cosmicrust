@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use std::cmp::Ordering;
+use std::collections::HashSet;
 
 use chrono::NaiveDate;
 
@@ -7,7 +7,6 @@ use chrono::NaiveDate;
 type Quantity = i64;
 type Sku = String;
 type Reference = String;
-
 
 #[derive(Debug, Hash, Clone)]
 pub struct OrderLine {
@@ -34,7 +33,6 @@ impl OrderLine {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Batch {
     pub reference: Reference,
@@ -54,7 +52,7 @@ impl Eq for Batch {}
 
 impl PartialOrd for Batch {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.eta.is_none(){
+        if self.eta.is_none() {
             Some(Ordering::Less)
         } else if other.eta.is_none() {
             Some(Ordering::Greater)
@@ -66,7 +64,7 @@ impl PartialOrd for Batch {
 
 impl Ord for Batch {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.eta.is_none(){
+        if self.eta.is_none() {
             Ordering::Less
         } else if other.eta.is_none() {
             Ordering::Greater
@@ -115,7 +113,6 @@ impl Batch {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::Batch;
@@ -123,20 +120,29 @@ mod tests {
 
     #[test]
     fn test_sort_vec_of_batches() {
-       let mut batches = vec![
-            Batch::new("shipment_batch", "RETRO-CLOCK", 100, Some(NaiveDate::from_ymd(2022, 5, 22))),
-            Batch::new("in_stock_batch", "RETRO-CLOCK", 100, None)
-       ];
+        let mut batches = vec![
+            Batch::new(
+                "shipment_batch",
+                "RETRO-CLOCK",
+                100,
+                Some(NaiveDate::from_ymd(2022, 5, 22)),
+            ),
+            Batch::new("in_stock_batch", "RETRO-CLOCK", 100, None),
+        ];
 
-       batches.sort();
+        batches.sort();
 
-       assert_eq!(
-           batches,
-           vec![
+        assert_eq!(
+            batches,
+            vec![
                 Batch::new("in_stock_batch", "RETRO-CLOCK", 100, None),
-                Batch::new("shipment_batch", "RETRO-CLOCK", 100, Some(NaiveDate::from_ymd(2022, 5, 22)))
-           ]
+                Batch::new(
+                    "shipment_batch",
+                    "RETRO-CLOCK",
+                    100,
+                    Some(NaiveDate::from_ymd(2022, 5, 22))
+                )
+            ]
         );
     }
-
 }

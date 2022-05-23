@@ -2,7 +2,6 @@ use std::fmt;
 
 use super::domain::{Batch, OrderLine};
 
-
 // Exceptions
 type AllocationResult<T> = std::result::Result<T, AllocationError>;
 
@@ -15,17 +14,14 @@ impl fmt::Display for AllocationError {
     }
 }
 
-
 pub fn allocate(line: &OrderLine, mut batches: Vec<&mut Batch>) -> AllocationResult<String> {
     batches.sort();
     let first_allocatable = batches.iter_mut().position(|x| x.can_allocate(line));
     if let Some(i) = first_allocatable {
-            let batch = &mut batches[i];
-            batch.allocate(line);
-            Ok(batch.reference.clone())
+        let batch = &mut batches[i];
+        batch.allocate(line);
+        Ok(batch.reference.clone())
     } else {
         Err(AllocationError)
     }
-
-    
 }

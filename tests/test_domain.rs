@@ -2,14 +2,12 @@ use chrono::NaiveDate;
 
 use cosmicrust::domain::{Batch, OrderLine};
 
-
-
 fn make_batch_and_line(sku: &str, batch_qty: i64, line_qty: i64) -> (Batch, OrderLine) {
-        let date = NaiveDate::from_ymd(2022, 3, 26);
-        let batch = Batch::new("batch-001", sku, batch_qty, Some(date));
-        let order = OrderLine::new("order-123", sku, line_qty);
-        (batch, order)
-    }
+    let date = NaiveDate::from_ymd(2022, 3, 26);
+    let batch = Batch::new("batch-001", sku, batch_qty, Some(date));
+    let order = OrderLine::new("order-123", sku, line_qty);
+    (batch, order)
+}
 
 #[test]
 fn test_can_allocate_if_available_greater_than_required() {
@@ -46,7 +44,12 @@ fn test_allocation_is_idempotent() {
 
 #[test]
 fn test_partial_ord_for_batches() {
-   let in_stock_batch = Batch::new("in_stock_batch", "RETRO-CLOCK", 100, None);
-   let shipment_batch = Batch::new("shipment_batch", "RETRO-CLOCK", 100, Some(NaiveDate::from_ymd(2022, 5, 22)));
-   assert!(in_stock_batch < shipment_batch);
+    let in_stock_batch = Batch::new("in_stock_batch", "RETRO-CLOCK", 100, None);
+    let shipment_batch = Batch::new(
+        "shipment_batch",
+        "RETRO-CLOCK",
+        100,
+        Some(NaiveDate::from_ymd(2022, 5, 22)),
+    );
+    assert!(in_stock_batch < shipment_batch);
 }

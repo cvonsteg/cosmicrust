@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use super::domain::Batch;
+use std::collections::HashMap;
 
 pub trait Repository<T> {
     fn add(&mut self, item: T);
@@ -7,7 +7,7 @@ pub trait Repository<T> {
 }
 
 pub struct LocalStore {
-    batches: HashMap<String, Batch>
+    batches: HashMap<String, Batch>,
 }
 
 impl Repository<Batch> for LocalStore {
@@ -20,7 +20,7 @@ impl Repository<Batch> for LocalStore {
         let batch = self.batches.get(&key);
         match batch {
             Some(b) => b.clone(),
-            None => panic!("No batch found for key {:?}", key)
+            None => panic!("No batch found for key {:?}", key),
         }
     }
 }
@@ -31,6 +31,6 @@ impl LocalStore {
         for batch in batches {
             batch_map.insert(String::from(&batch.reference), batch);
         }
-        LocalStore{ batches: batch_map }
+        LocalStore { batches: batch_map }
     }
 }

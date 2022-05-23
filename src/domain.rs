@@ -1,38 +1,19 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::HashSet;
 use std::cmp::Ordering;
-use std::fmt;
 
 use chrono::NaiveDate;
 
+// Custom types
 type Quantity = i64;
 type Sku = String;
 type Reference = String;
 
-// Exceptions
-type AllocationResult<T> = std::result::Result<T, AllocationError>;
-
-// Traits
-
-pub trait Repository<T> {
-    fn add(&mut self, item: T);
-    fn get(&self, key: String) -> T;
-}
-
-#[derive(Debug, Clone)]
-pub struct AllocationError;
-
-impl fmt::Display for AllocationError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "No allocatable batches found")
-    }
-}
-
 
 #[derive(Debug, Hash, Clone)]
 pub struct OrderLine {
-    order_id: String,
-    sku: Sku,
-    qty: Quantity,
+    pub order_id: String,
+    pub sku: Sku,
+    pub qty: Quantity,
 }
 
 impl PartialEq for OrderLine {
@@ -53,13 +34,14 @@ impl OrderLine {
     }
 }
 
+
 #[derive(Debug, Clone)]
 pub struct Batch {
-    reference: Reference,
-    sku: Sku,
-    eta: Option<NaiveDate>,
-    _purchased_qty: Quantity,
-    _allocations: HashSet<OrderLine>,
+    pub reference: Reference,
+    pub sku: Sku,
+    pub eta: Option<NaiveDate>,
+    purchased_qty: Quantity,
+    allocations: HashSet<OrderLine>,
 }
 
 impl PartialEq for Batch {
@@ -96,25 +78,25 @@ impl Ord for Batch {
 
 impl Batch {
     pub fn new(reference: &str, sku: &str, qty: i64, eta: Option<NaiveDate>) -> Batch {
-        let empty_allocations: HashSet<OrderLine> = HashSet::new();
+        let emptyallocations: HashSet<OrderLine> = HashSet::new();
         Batch {
             reference: reference.to_owned(),
             sku: sku.to_owned(),
-            _purchased_qty: qty,
+            purchased_qty: qty,
             eta,
-            _allocations: empty_allocations,
+            allocations: emptyallocations,
         }
     }
 
     pub fn allocate(&mut self, line: &OrderLine) {
         if self.can_allocate(line) {
-            self._allocations.insert(line.clone());
+            self.allocations.insert(line.clone());
         }
     }
 
     pub fn deallocate(&mut self, line: &OrderLine) {
-        if self._allocations.contains(line) {
-            self._allocations.remove(line);
+        if self.allocations.contains(line) {
+            self.allocations.remove(line);
         }
     }
 
@@ -125,109 +107,19 @@ impl Batch {
     }
 
     pub fn allocated_quantity(&self) -> Quantity {
-        self._allocations.iter().map(|x| x.qty).sum()
+        self.allocations.iter().map(|x| x.qty).sum()
     }
 
     pub fn available_quantity(&self) -> Quantity {
-        self._purchased_qty - self.allocated_quantity()
+        self.purchased_qty - self.allocated_quantity()
     }
-}
-
-pub struct LocalStore {
-    batches: HashMap<String, Batch>
-}
-
-impl Repository<Batch> for LocalStore {
-    fn add(&mut self, item: Batch) {
-        let key = item.reference.clone();
-        self.batches.insert(key, item);
-    }
-
-    fn get(&self, key: String) -> Batch {
-        let batch = self.batches.get(&key);
-        match batch {
-            Some(b) => b.clone(),
-            None => panic!("No batch found for key {:?}", key)
-        }
-    }
-}
-
-impl LocalStore {
-    pub fn from_vec(batches: Vec<Batch>) -> LocalStore {
-        let mut batch_map = HashMap::new();
-        for batch in batches {
-            batch_map.insert(String::from(&batch.reference), batch);
-        }
-        LocalStore{ batches: batch_map }
-    }
-}
-
-pub fn allocate(line: &OrderLine, mut batches: Vec<&mut Batch>) -> AllocationResult<String> {
-    batches.sort();
-    let first_allocatable = batches.iter_mut().position(|x| x.can_allocate(line));
-    if let Some(i) = first_allocatable {
-            let batch = &mut batches[i];
-            batch.allocate(line);
-            Ok(batch.reference.clone())
-    } else {
-        Err(AllocationError)
-    }
-
-    
 }
 
 
 #[cfg(test)]
 mod tests {
-    use super::{Batch, OrderLine, allocate, LocalStore, Repository};
+    use super::Batch;
     use chrono::NaiveDate;
-
-    fn make_batch_and_line(sku: &str, batch_qty: i64, line_qty: i64) -> (Batch, OrderLine) {
-        let date = NaiveDate::from_ymd(2022, 3, 26);
-        let batch = Batch::new("batch-001", sku, batch_qty, Some(date));
-        let order = OrderLine::new("order-123", sku, line_qty);
-        (batch, order)
-    }
-
-    #[test]
-    fn test_can_allocate_if_available_greater_than_required() {
-        let (large_batch, small_line) = make_batch_and_line("ELEGANT-LAMP", 20, 2);
-        assert!(large_batch.can_allocate(&small_line))
-    }
-
-    #[test]
-    fn test_cannot_allocate_if_available_smaller_than_required() {
-        let (small_batch, large_line) = make_batch_and_line("ELEGANT-LAMP", 2, 20);
-        assert!(!small_batch.can_allocate(&large_line));
-    }
-
-    #[test]
-    fn test_can_allocate_if_available_eq_to_required() {
-        let (batch, line) = make_batch_and_line("ELEGANT-LAMP", 2, 2);
-        assert!(batch.can_allocate(&line));
-    }
-
-    #[test]
-    fn test_cannot_allocate_if_skus_do_not_match() {
-        let batch = Batch::new("batch-001", "UNCOMFORTABLE-CHAIR", 100, None);
-        let different_sku_line = OrderLine::new("order-123", "EXPENSIVE-TOASTER", 10);
-        assert!(!batch.can_allocate(&different_sku_line));
-    }
-
-    #[test]
-    fn test_allocation_is_idempotent() {
-        let (mut batch, line) = make_batch_and_line("ANGULAR-DESK", 20, 2);
-        batch.allocate(&line);
-        batch.allocate(&line);
-        assert_eq!(batch.available_quantity(), 18);
-    }
-
-    #[test]
-    fn test_partial_ord_for_batches() {
-       let in_stock_batch = Batch::new("in_stock_batch", "RETRO-CLOCK", 100, None);
-       let shipment_batch = Batch::new("shipment_batch", "RETRO-CLOCK", 100, Some(NaiveDate::from_ymd(2022, 5, 22)));
-       assert!(in_stock_batch < shipment_batch);
-    }
 
     #[test]
     fn test_sort_vec_of_batches() {
@@ -247,55 +139,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_prefers_current_stock_batches_to_shipments() {
-        let mut in_stock_batch = Batch::new("in_stock_batch", "RETRO-CLOCK", 100, None);
-        let mut shipment_batch = Batch::new("shipment_batch", "RETRO-CLOCK", 100, Some(NaiveDate::from_ymd(2022, 5, 22)));
-        let line = OrderLine::new("oref", "RETRO-CLOCK", 10);
-        let batches: Vec<&mut Batch> = vec![&mut in_stock_batch, &mut shipment_batch];
-
-        let result = allocate(&line, batches);
-
-        assert!(result.is_ok());
-
-        let response = result.unwrap();
-
-        assert_eq!(response, String::from("in_stock_batch"));
-        assert_eq!(in_stock_batch.available_quantity(), 90);
-        assert_eq!(shipment_batch.available_quantity(), 100);
-    }
-
-    #[test]
-    fn test_allocation_error_raised_if_no_batches_available() {
-        let mut in_stock_batch = Batch::new("in_stock_batch", "RETRO-CLOCK", 100, None);
-        let mut shipment_batch = Batch::new("shipment_batch", "RETRO-CLOCK", 100, Some(NaiveDate::from_ymd(2022, 5, 22)));
-        let line = OrderLine::new("oref", "RETRO-CHAIR", 10);
-        let batches: Vec<&mut Batch> = vec![&mut in_stock_batch, &mut shipment_batch];
-
-        let result = allocate(&line, batches);
-        
-        assert!(result.is_err(), "No allocatable batches found");
-
-    }
-
-
-    #[test]
-    fn test_that_local_store_can_read_and_write_batch() {
-        let batches = vec![
-            Batch::new("ref1", "CHAIR", 10, None),
-            Batch::new("ref2", "TABLE", 10, None),
-            Batch::new("ref3", "SOFA", 10, None),
-            Batch::new("ref4", "LAMP", 10, None),
-        ];
-        let mut local_store = LocalStore::from_vec(batches);
-        let new_batch = Batch::new("ref5", "CUSHION", 10, None);
-
-        // write
-        local_store.add(new_batch);
-        //read
-        let result = local_store.get(String::from("ref5"));
-
-        assert_eq!(result, Batch::new("ref5", "CUSHION", 10, None));
-    }
 }
-

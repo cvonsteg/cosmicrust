@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -10,6 +10,13 @@ type Reference = String;
 
 // Exceptions
 type AllocationResult<T> = std::result::Result<T, AllocationError>;
+
+// Traits
+
+pub trait Repository<T> {
+    fn add(&mut self, item: T);
+    fn get(&self, key: String) -> T;
+}
 
 #[derive(Debug, Clone)]
 pub struct AllocationError;
@@ -126,24 +133,53 @@ impl Batch {
     }
 }
 
+pub struct LocalStore {
+    batches: HashMap<String, Batch>
+}
+
+impl Repository<Batch> for LocalStore {
+    fn add(&mut self, item: Batch) {
+        let key = item.reference.clone();
+        self.batches.insert(key, item);
+    }
+
+    fn get(&self, key: String) -> Batch {
+        let batch = self.batches.get(&key);
+        match batch {
+            Some(b) => b.clone(),
+            None => panic!("No batch found for key {:?}", key)
+        }
+    }
+}
+
+impl LocalStore {
+    pub fn from_vec(batches: Vec<Batch>) -> LocalStore {
+        let mut batch_map = HashMap::new();
+        for batch in batches {
+            batch_map.insert(String::from(&batch.reference), batch);
+        }
+        LocalStore{ batches: batch_map }
+    }
+}
+
 pub fn allocate(line: &OrderLine, mut batches: Vec<&mut Batch>) -> AllocationResult<String> {
     batches.sort();
     let first_allocatable = batches.iter_mut().position(|x| x.can_allocate(line));
-    match first_allocatable {
-        None => Err(AllocationError),
-        Some(i) => {
+    if let Some(i) = first_allocatable {
             let batch = &mut batches[i];
             batch.allocate(line);
             Ok(batch.reference.clone())
-        }
+    } else {
+        Err(AllocationError)
     }
+
     
 }
 
 
 #[cfg(test)]
 mod tests {
-    use super::{Batch, OrderLine, allocate};
+    use super::{Batch, OrderLine, allocate, LocalStore, Repository};
     use chrono::NaiveDate;
 
     fn make_batch_and_line(sku: &str, batch_qty: i64, line_qty: i64) -> (Batch, OrderLine) {
@@ -241,4 +277,25 @@ mod tests {
         assert!(result.is_err(), "No allocatable batches found");
 
     }
+
+
+    #[test]
+    fn test_that_local_store_can_read_and_write_batch() {
+        let batches = vec![
+            Batch::new("ref1", "CHAIR", 10, None),
+            Batch::new("ref2", "TABLE", 10, None),
+            Batch::new("ref3", "SOFA", 10, None),
+            Batch::new("ref4", "LAMP", 10, None),
+        ];
+        let mut local_store = LocalStore::from_vec(batches);
+        let new_batch = Batch::new("ref5", "CUSHION", 10, None);
+
+        // write
+        local_store.add(new_batch);
+        //read
+        let result = local_store.get(String::from("ref5"));
+
+        assert_eq!(result, Batch::new("ref5", "CUSHION", 10, None));
+    }
 }
+

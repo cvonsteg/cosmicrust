@@ -116,6 +116,7 @@ impl Batch {
 #[cfg(test)]
 mod tests {
     use super::Batch;
+    use super::OrderLine;
     use chrono::NaiveDate;
 
     #[test]
@@ -144,5 +145,19 @@ mod tests {
                 )
             ]
         );
+    }
+
+    #[test]
+    fn test_allocated_arithmetic() {
+        let mut batch = Batch::new("abc123", "sku1", 100, None);
+        let order_line = OrderLine::new("id1", "sku1", 10);
+
+        assert_eq!(batch.allocated_quantity(), 0);
+        assert_eq!(batch.available_quantity(), 100);
+
+        batch.allocate(&order_line);
+
+        assert_eq!(batch.allocated_quantity(), 10);
+        assert_eq!(batch.available_quantity(), 90);
     }
 }

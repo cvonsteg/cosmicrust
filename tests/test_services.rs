@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
 
-use cosmicrust::allocate::allocate;
+use cosmicrust::services::allocate;
 use cosmicrust::domain::{Batch, OrderLine};
 
 #[test]

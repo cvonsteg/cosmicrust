@@ -16,6 +16,7 @@ impl fmt::Display for AllocationError {
 
 pub fn allocate(line: &OrderLine, mut batches: Vec<&mut Batch>) -> AllocationResult<String> {
     batches.sort();
+    // Index of first allocatable batch (sorted by eta)
     let first_allocatable = batches.iter_mut().position(|x| x.can_allocate(line));
     if let Some(i) = first_allocatable {
         let batch = &mut batches[i];

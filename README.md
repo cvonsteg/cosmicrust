@@ -7,4 +7,4 @@ Having worked through the [cosmicpython](https://www.cosmicpython.com/book/prefa
 
 ## Currently at
 
-Start of chapter 4 (Our First Use Case)
+Start of chapter 4 (UoW)

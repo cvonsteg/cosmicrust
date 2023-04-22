@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
 
-use cosmicrust::domain::{Batch, OrderLine};
+use cosmicrust::domain::{Batch, OrderLine, Product};
 
 fn make_batch_and_line(sku: &str, batch_qty: i64, line_qty: i64) -> (Batch, OrderLine) {
     let date = NaiveDate::from_ymd(2022, 3, 26);
@@ -52,4 +52,35 @@ fn test_partial_ord_for_batches() {
         Some(NaiveDate::from_ymd(2022, 5, 22)),
     );
     assert!(in_stock_batch < shipment_batch);
+}
+
+#[test]
+fn test_product_cannot_allocate() {
+    // given
+    let in_stock_sku = "in_stock_batch";
+    let in_stock_batch = Batch::new("ref1", in_stock_sku, 100, None);
+    let in_stock_orderline = OrderLine::new("order1", in_stock_sku, 200);
+    let not_preset_orderline = OrderLine::new("order2", "not_present", 100);
+    let mut product = Product::new(String::from(in_stock_sku), vec![in_stock_batch]);
+
+    // invalid sku
+    let result_not_present = product.allocate(&not_preset_orderline);
+    assert!(result_not_present.is_err());
+    // present but too not enough units
+    let result_not_enough = product.allocate(&in_stock_orderline);
+    assert!(result_not_enough.is_err());
+}
+
+#[test]
+fn test_product_can_allocate() {
+    // given
+    let in_stock_sku = "in_stock_batch";
+    let in_stock_batch = Batch::new("ref1", in_stock_sku, 100, None);
+    let in_stock_orderline = OrderLine::new("order1", in_stock_sku, 20);
+    let mut product = Product::new(String::from(in_stock_sku), vec![in_stock_batch]);
+    // when
+    let result = product.allocate(&in_stock_orderline);
+    // then
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), String::from("ref1"));
 }

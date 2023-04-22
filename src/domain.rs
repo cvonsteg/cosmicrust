@@ -1,3 +1,4 @@
+use std::fmt;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
@@ -7,6 +8,23 @@ use chrono::NaiveDate;
 type Quantity = i64;
 type Sku = String;
 type Reference = String;
+
+
+#[derive(Debug, Clone)]
+pub enum DomainError {
+    OutOfStock(String)
+}
+
+
+impl fmt::Display for DomainError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // match is redundant for now
+        match self {
+            Self::OutOfStock(s) => write!(f, "Out of stock for sku: {}", s)
+        }
+    }
+}
+
 
 #[derive(Debug, Hash, Clone)]
 pub struct OrderLine {
@@ -112,6 +130,35 @@ impl Batch {
         self.purchased_qty - self.allocated_quantity()
     }
 }
+
+
+#[derive(Debug, Clone)]
+pub struct Product {
+    pub sku: Sku,
+    pub batches: Vec<Batch>
+}
+
+impl Product {
+    pub fn new(sku: Sku, batches: Vec<Batch>) -> Self {
+        Product { sku, batches }
+    }
+
+    pub fn allocate(&mut self, line: &OrderLine) -> Result<Reference, DomainError> {
+        self.batches.sort();
+        if let Some(first_allocatable) = self.batches.iter_mut().find(|b| b.can_allocate(line)) {
+            first_allocatable.allocate(line);
+            Ok(first_allocatable.reference.clone())
+        } else {
+            Err(DomainError::OutOfStock(line.sku.clone()))
+
+        }
+    }
+
+    pub fn append_batch(&mut self, batch: Batch) {
+        self.batches.push(batch)
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

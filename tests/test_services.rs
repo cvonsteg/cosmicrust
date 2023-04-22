@@ -1,8 +1,8 @@
 use chrono::{Local, NaiveDate};
 
-use cosmicrust::domain::{Batch, OrderLine};
-use cosmicrust::repo::{LocalBatchRepo, Repository};
-use cosmicrust::services::{allocate, get_closest_batch};
+use cosmicrust::domain::{Batch, OrderLine, DomainError};
+use cosmicrust::repo::{LocalBatchRepo, Repository, RepoError};
+use cosmicrust::services;
 
 static SKU: &str = "RETRO-CLOCK";
 
@@ -14,41 +14,56 @@ fn setup_repo() -> LocalBatchRepo {
         100,
         Some(NaiveDate::from_ymd(2022, 5, 22)),
     );
-    let mut repo = LocalBatchRepo::new();
-    repo.populate_from_vec(vec![in_stock_batch, shipment_batch]);
+    let repo = LocalBatchRepo::populate_from_vec(vec![in_stock_batch, shipment_batch]);
     repo
 }
 
 #[test]
-fn test_get_closest_batch() {
-    let repo = setup_repo();
+fn test_add_batch_if_sku_exists(){
+    // given
+    let mut repo = setup_repo();
+    let initial_len = repo.read(SKU).unwrap().batches.len();
+    let batch = Batch::new("some_ref", SKU, 10, None);
     // when
-    let should_give_batch = get_closest_batch(&OrderLine::new("oref", SKU, 10), &repo);
-    let should_give_none = get_closest_batch(&OrderLine::new("oref", "DOES-NOT-EXIST", 10), &repo);
+    let result = services::add_batch(batch, &mut repo);
     // then
-    assert!(should_give_batch.is_some());
-    assert!(should_give_none.is_none());
+    assert!(result.is_ok());
+    assert!(repo.read(SKU).unwrap().batches.len() > initial_len);
 }
 
 #[test]
-fn test_prefers_current_stock_batches_to_shipments() {
+fn test_add_batch_if_sku_doesnt_exist(){
     // given
     let mut repo = setup_repo();
-    let line = OrderLine::new("oref", SKU, 10);
+    let batch = Batch::new("some_ref", "NEW-SKU", 10, None);
     // when
-    let result = allocate(&line, &mut repo);
+    let result = services::add_batch(batch, &mut repo);
     // then
     assert!(result.is_ok());
+    assert!(repo.read("NEW-SKU").is_ok());
+}
+
+#[test]
+fn test_successful_allocation(){
+    // given
+    let mut repo = setup_repo();
+    let order = OrderLine::new("oref", SKU, 10);
+    // when
+    let result = services::allocate(&order, &mut repo);
+    // then
     assert_eq!(result.unwrap(), String::from("in_stock_batch"));
 }
 
 #[test]
-fn test_allocation_error_raised_if_no_batches_available() {
+fn test_allocate_exceptions_caught(){
     // given
     let mut repo = setup_repo();
-    let line = OrderLine::new("oref", "RETRO-CHAIR", 10);
+    let invalid_sku_order = OrderLine::new("oref", "INVALID-SKU", 10);
+    let qty_too_high_order = OrderLine::new("oref", SKU, 1000);
     // when
-    let result = allocate(&line, &mut repo);
+    let invalid_sku_result = services::allocate(&invalid_sku_order, &mut repo);
+    let qty_result = services::allocate(&qty_too_high_order, &mut repo);
     // then
-    assert!(result.is_err(), "No allocatable batches found");
+    assert!(invalid_sku_result.is_err());
+    assert!(qty_result.is_err());
 }

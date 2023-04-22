@@ -1,49 +1,55 @@
 use std::fmt;
 
-use super::domain::{Batch, OrderLine};
+use crate::repo::RepoError;
+
+use super::domain::{Batch, OrderLine, Product, DomainError};
 use super::repo::Repository;
 
 // Exceptions
-type AllocationResult<T> = std::result::Result<T, AllocationError>;
+type ServiceResult<T> = std::result::Result<T, ServiceError>;
 
 #[derive(Debug, Clone)]
-pub struct AllocationError;
+pub enum ServiceError {
+    IO(RepoError),
+    Processing(DomainError)
+}
 
-impl fmt::Display for AllocationError {
+impl fmt::Display for ServiceError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "No allocatable batches found")
+        match self {
+            Self::IO(e) => write!(f, "IO error: {}", e),
+            Self::Processing(e) => write!(f, "Processing error: {}", e)
+        }
     }
 }
 
-pub fn get_closest_batch(
-    line: &OrderLine,
-    repo: &impl Repository<Batch, Vec<Batch>>,
-) -> Option<Batch> {
-    if let Ok(mut batches) = repo.read(&line.sku) {
-        batches.sort();
-        if let Some(first_allocatable) = batches.iter_mut().position(|x| x.can_allocate(line)) {
-            let batch = &batches[first_allocatable];
-            Some(batch.clone())
-        } else {
-            None
-        }
-    } else {
-        None
+impl From<RepoError> for ServiceError {
+    fn from(value: RepoError) -> Self {
+        Self::IO(value)
     }
 }
+
+impl From<DomainError> for ServiceError {
+    fn from(value: DomainError) -> Self {
+        Self::Processing(value)
+    }
+}
+
+
+pub fn add_batch(batch: Batch, repo: &mut impl Repository<Product>) -> ServiceResult<()> {
+    let mut product = repo.read(&batch.sku).unwrap_or(Product::new(String::from(&batch.sku), Vec::new()));
+    product.append_batch(batch);
+    repo.update(product)?;
+    Ok(())
+}
+
 
 pub fn allocate(
     line: &OrderLine,
-    repo: &mut impl Repository<Batch, Vec<Batch>>,
-) -> AllocationResult<String> {
-    if let Some(mut batch) = get_closest_batch(line, repo) {
-        let reference = batch.reference.clone();
-        batch.allocate(line);
-        match repo.update(batch) {
-            Ok(_) => Ok(reference),
-            Err(_) => Err(AllocationError),
-        }
-    } else {
-        Err(AllocationError)
-    }
+    repo: &mut impl Repository<Product>,
+) -> ServiceResult<String> {
+    let mut product = repo.read(&line.sku)?;
+    let batch_ref = product.allocate(line)?;
+    repo.update(product)?;
+    Ok(batch_ref)
 }
